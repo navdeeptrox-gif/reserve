@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const [newFood, setNewFood] = useState("");
   const [newQuantity, setNewQuantity] = useState("");
 
-  /* ------------------ DISTANCE ------------------ */
+  /* ---------------- DISTANCE CALCULATOR ---------------- */
   const calculateDistance = (
     lat1: number,
     lon1: number,
@@ -48,17 +48,19 @@ export default function DashboardPage() {
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
-  /* ------------------ GENERATE RECEIVER POSTS ------------------ */
+  /* ---------------- GENERATE DEMO POSTS ---------------- */
   const generateNearbyPosts = (baseLat: number, baseLng: number) => {
-    const randomOffset = () => (Math.random() - 0.5) * 0.02;
+    const randomOffset = () => (Math.random() - 0.5) * 0.03;
 
     const foods = [
       "Cooked Rice & Curry",
       "Chapati & Sabzi",
+      "Vegetable Biryani",
       "Wedding Buffet Surplus",
+      "Packed Meals",
     ];
 
-    return foods.map((food, index) => {
+    return foods.slice(0, 4).map((food, index) => {
       const lat = baseLat + randomOffset();
       const lng = baseLng + randomOffset();
 
@@ -69,12 +71,12 @@ export default function DashboardPage() {
         address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
         distance: calculateDistance(baseLat, baseLng, lat, lng),
         status: "available" as const,
-        createdAt: Date.now(),
+        createdAt: Date.now() - Math.floor(Math.random() * 3600000),
       };
     });
   };
 
-  /* ------------------ INIT ------------------ */
+  /* ---------------- INIT ---------------- */
   useEffect(() => {
     const savedRole = localStorage.getItem("role") as Role | null;
     const savedOrg = localStorage.getItem("orgName");
@@ -89,16 +91,21 @@ export default function DashboardPage() {
     setOrgName(savedOrg);
     setOrgAddress(savedAddress);
 
-    if (savedRole === "receiver") {
-      const [latStr, lngStr] = savedAddress.split(",");
-      const baseLat = parseFloat(latStr);
-      const baseLng = parseFloat(lngStr);
+    // 🔥 Always generate demo posts
+    let baseLat: number;
+    let baseLng: number;
 
-      if (!isNaN(baseLat) && !isNaN(baseLng)) {
-        setPosts(generateNearbyPosts(baseLat, baseLng));
-      }
+    if (savedAddress.includes(",")) {
+      const [latStr, lngStr] = savedAddress.split(",");
+      baseLat = parseFloat(latStr);
+      baseLng = parseFloat(lngStr);
+    } else {
+      // fallback demo base (Bangalore center)
+      baseLat = 12.9716 + (Math.random() - 0.5) * 0.1;
+      baseLng = 77.5946 + (Math.random() - 0.5) * 0.1;
     }
 
+    setPosts(generateNearbyPosts(baseLat, baseLng));
     setLoading(false);
   }, [router]);
 
@@ -107,7 +114,7 @@ export default function DashboardPage() {
     router.replace("/register");
   };
 
-  /* ------------------ RECEIVER ACTION ------------------ */
+  /* ---------------- RECEIVER ---------------- */
   const acceptFood = (id: number) => {
     setPosts((prev) =>
       prev.map((post) =>
@@ -116,7 +123,7 @@ export default function DashboardPage() {
     );
   };
 
-  /* ------------------ DONOR POST ------------------ */
+  /* ---------------- DONOR ---------------- */
   const addPost = () => {
     if (!newFood || !newQuantity || !orgAddress) return;
 
@@ -145,13 +152,13 @@ export default function DashboardPage() {
   if (loading || !role || !orgName) return null;
 
   return (
-    <div className="min-h-screen bg-[#0E0E11] text-white">
+    <div className="min-h-screen bg-[#0B0B0F] text-white">
 
       {/* HEADER */}
-      <div className="border-b border-white/10 backdrop-blur-md bg-black/40 sticky top-0 z-10">
+      <div className="sticky top-0 z-20 border-b border-white/10 bg-black/50 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 py-5 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-2xl font-bold tracking-tight">
               Re<span className="text-green-400">Serve</span>
             </h1>
             <p className="text-xs text-neutral-400">{orgName}</p>
@@ -174,7 +181,7 @@ export default function DashboardPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-16">
 
-        {/* ---------------- RECEIVER ---------------- */}
+        {/* RECEIVER DASHBOARD */}
         {role === "receiver" && (
           <section>
             <h2 className="text-3xl font-bold mb-10">
@@ -185,7 +192,7 @@ export default function DashboardPage() {
               {posts.map((post) => (
                 <div
                   key={post.id}
-                  className="bg-[#15151A] rounded-3xl p-6 border border-white/5 hover:border-green-400/40 transition"
+                  className="bg-[#14141A] rounded-3xl p-6 border border-white/5 hover:border-green-400/30 transition-all duration-300"
                 >
                   <div className="flex justify-between mb-4">
                     <div>
@@ -227,7 +234,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ---------------- DONOR ---------------- */}
+        {/* DONOR DASHBOARD */}
         {role === "donor" && (
           <section className="space-y-12">
 
@@ -235,8 +242,7 @@ export default function DashboardPage() {
               Operations Dashboard
             </h2>
 
-            {/* Post Card */}
-            <div className="bg-[#15151A] rounded-3xl p-8 border border-white/5 space-y-5">
+            <div className="bg-[#14141A] rounded-3xl p-8 border border-white/5 space-y-5">
               <input
                 type="text"
                 placeholder="Food Name"
@@ -261,7 +267,6 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Live Posts */}
             <div>
               <h3 className="text-xl font-semibold mb-6">
                 Active Donations
@@ -271,31 +276,27 @@ export default function DashboardPage() {
                 {posts.map((post) => (
                   <div
                     key={post.id}
-                    className="bg-[#15151A] rounded-3xl p-6 border border-white/5"
+                    className="bg-[#14141A] rounded-3xl p-6 border border-white/5"
                   >
-                    <div className="flex justify-between">
-                      <div>
-                        <h4 className="text-lg font-semibold">
-                          {post.foodName}
-                        </h4>
-                        <p className="text-sm text-neutral-400">
-                          {post.quantity}
-                        </p>
-                        <p className="text-xs text-neutral-500 mt-1">
-                          Posted {getTimeAgo(post.createdAt)}
-                        </p>
-                      </div>
+                    <h4 className="text-lg font-semibold">
+                      {post.foodName}
+                    </h4>
+                    <p className="text-sm text-neutral-400">
+                      {post.quantity}
+                    </p>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Posted {getTimeAgo(post.createdAt)}
+                    </p>
 
-                      <span
-                        className={`text-xs px-3 py-1 rounded-full ${
-                          post.status === "available"
-                            ? "bg-yellow-500/20 text-yellow-400"
-                            : "bg-green-500/20 text-green-400"
-                        }`}
-                      >
-                        {post.status}
-                      </span>
-                    </div>
+                    <span
+                      className={`mt-3 inline-block text-xs px-3 py-1 rounded-full ${
+                        post.status === "available"
+                          ? "bg-yellow-500/20 text-yellow-400"
+                          : "bg-green-500/20 text-green-400"
+                      }`}
+                    >
+                      {post.status}
+                    </span>
                   </div>
                 ))}
               </div>
