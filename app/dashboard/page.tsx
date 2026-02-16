@@ -14,6 +14,7 @@ type FoodPost = {
   distance?: number;
   status: "available" | "accepted";
   createdAt: number;
+  owner?: string;
 };
 
 export default function DashboardPage() {
@@ -28,7 +29,7 @@ export default function DashboardPage() {
   const [newFood, setNewFood] = useState("");
   const [newQuantity, setNewQuantity] = useState("");
 
-  /* ---------------- DISTANCE CALCULATOR ---------------- */
+  /* ---------------- DISTANCE ---------------- */
   const calculateDistance = (
     lat1: number,
     lon1: number,
@@ -48,7 +49,34 @@ export default function DashboardPage() {
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
-  /* ---------------- GENERATE DEMO POSTS ---------------- */
+  /* ---------------- LOCATION RESOLVER ---------------- */
+  const resolveBaseLocation = (address: string) => {
+    const lower = address.toLowerCase();
+
+    if (lower.includes("mysore")) return { lat: 12.2958, lng: 76.6394 };
+    if (lower.includes("bangalore") || lower.includes("bengaluru"))
+      return { lat: 12.9716, lng: 77.5946 };
+    if (lower.includes("mangalore"))
+      return { lat: 12.9141, lng: 74.8560 };
+
+    if (address.includes(",")) {
+      const [latStr, lngStr] = address.split(",");
+      const lat = parseFloat(latStr);
+      const lng = parseFloat(lngStr);
+      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
+
+    const hash = address
+      .split("")
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+    return {
+      lat: 12.9 + (hash % 100) * 0.001,
+      lng: 77.5 + (hash % 100) * 0.001,
+    };
+  };
+
+  /* ---------------- GENERATE RECEIVER POSTS ---------------- */
   const generateNearbyPosts = (baseLat: number, baseLng: number) => {
     const randomOffset = () => (Math.random() - 0.5) * 0.03;
 
@@ -72,6 +100,7 @@ export default function DashboardPage() {
         distance: calculateDistance(baseLat, baseLng, lat, lng),
         status: "available" as const,
         createdAt: Date.now() - Math.floor(Math.random() * 3600000),
+        owner: "Local Donor",
       };
     });
   };
@@ -91,21 +120,9 @@ export default function DashboardPage() {
     setOrgName(savedOrg);
     setOrgAddress(savedAddress);
 
-    // 🔥 Always generate demo posts
-    let baseLat: number;
-    let baseLng: number;
+    const { lat, lng } = resolveBaseLocation(savedAddress);
+    setPosts(generateNearbyPosts(lat, lng));
 
-    if (savedAddress.includes(",")) {
-      const [latStr, lngStr] = savedAddress.split(",");
-      baseLat = parseFloat(latStr);
-      baseLng = parseFloat(lngStr);
-    } else {
-      // fallback demo base (Bangalore center)
-      baseLat = 12.9716 + (Math.random() - 0.5) * 0.1;
-      baseLng = 77.5946 + (Math.random() - 0.5) * 0.1;
-    }
-
-    setPosts(generateNearbyPosts(baseLat, baseLng));
     setLoading(false);
   }, [router]);
 
@@ -114,7 +131,6 @@ export default function DashboardPage() {
     router.replace("/register");
   };
 
-  /* ---------------- RECEIVER ---------------- */
   const acceptFood = (id: number) => {
     setPosts((prev) =>
       prev.map((post) =>
@@ -123,17 +139,19 @@ export default function DashboardPage() {
     );
   };
 
-  /* ---------------- DONOR ---------------- */
   const addPost = () => {
-    if (!newFood || !newQuantity || !orgAddress) return;
+    if (!newFood || !newQuantity || !orgAddress || !orgName) return;
+
+    const { lat, lng } = resolveBaseLocation(orgAddress);
 
     const newPost: FoodPost = {
       id: Date.now(),
       foodName: newFood,
       quantity: newQuantity,
-      address: orgAddress,
+      address: `${lat},${lng}`,
       status: "available",
       createdAt: Date.now(),
+      owner: orgName,
     };
 
     setPosts((prev) => [newPost, ...prev]);
@@ -155,10 +173,10 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#0B0B0F] text-white">
 
       {/* HEADER */}
-      <div className="sticky top-0 z-20 border-b border-white/10 bg-black/50 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex justify-between items-center">
+      <div className="sticky top-0 z-20 border-b border-white/10 bg-black/60 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-2xl font-bold">
               Re<span className="text-green-400">Serve</span>
             </h1>
             <p className="text-xs text-neutral-400">{orgName}</p>
@@ -168,7 +186,6 @@ export default function DashboardPage() {
             <span className="text-xs uppercase tracking-wider text-green-400 bg-green-400/10 px-3 py-1 rounded-full">
               {role}
             </span>
-
             <button
               onClick={logout}
               className="text-sm text-neutral-400 hover:text-white transition"
@@ -179,7 +196,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-16">
+      <div className="max-w-7xl mx-auto px-6 py-12 space-y-16">
 
         {/* RECEIVER DASHBOARD */}
         {role === "receiver" && (
@@ -192,7 +209,7 @@ export default function DashboardPage() {
               {posts.map((post) => (
                 <div
                   key={post.id}
-                  className="bg-[#14141A] rounded-3xl p-6 border border-white/5 hover:border-green-400/30 transition-all duration-300"
+                  className="bg-[#14141A] rounded-3xl p-6 border border-white/5 hover:border-green-400/30 transition-all"
                 >
                   <div className="flex justify-between mb-4">
                     <div>
@@ -206,7 +223,6 @@ export default function DashboardPage() {
                         {getTimeAgo(post.createdAt)}
                       </p>
                     </div>
-
                     <span className="text-xs bg-green-400/10 text-green-400 px-3 py-1 rounded-full">
                       {post.distance?.toFixed(1)} km
                     </span>
@@ -219,7 +235,7 @@ export default function DashboardPage() {
                   {post.status === "available" ? (
                     <button
                       onClick={() => acceptFood(post.id)}
-                      className="w-full py-3 bg-green-500 hover:bg-green-400 text-black rounded-2xl font-semibold transition hover:scale-[1.02]"
+                      className="w-full py-3 bg-green-500 hover:bg-green-400 text-black rounded-2xl font-semibold transition"
                     >
                       Accept Donation
                     </button>
@@ -239,7 +255,7 @@ export default function DashboardPage() {
           <section className="space-y-12">
 
             <h2 className="text-3xl font-bold">
-              Operations Dashboard
+              Post Surplus Food
             </h2>
 
             <div className="bg-[#14141A] rounded-3xl p-8 border border-white/5 space-y-5">
@@ -250,7 +266,6 @@ export default function DashboardPage() {
                 onChange={(e) => setNewFood(e.target.value)}
                 className="w-full bg-black/40 p-3 rounded-2xl text-white placeholder-neutral-500 focus:ring-2 focus:ring-green-400"
               />
-
               <input
                 type="text"
                 placeholder="Quantity"
@@ -258,10 +273,9 @@ export default function DashboardPage() {
                 onChange={(e) => setNewQuantity(e.target.value)}
                 className="w-full bg-black/40 p-3 rounded-2xl text-white placeholder-neutral-500 focus:ring-2 focus:ring-green-400"
               />
-
               <button
                 onClick={addPost}
-                className="w-full py-3 bg-green-500 hover:bg-green-400 text-black rounded-2xl font-semibold transition hover:scale-[1.02]"
+                className="w-full py-3 bg-green-500 hover:bg-green-400 text-black rounded-2xl font-semibold transition"
               >
                 Publish Donation
               </button>
@@ -269,39 +283,40 @@ export default function DashboardPage() {
 
             <div>
               <h3 className="text-xl font-semibold mb-6">
-                Active Donations
+                Your Active Donations
               </h3>
 
               <div className="grid md:grid-cols-2 gap-8">
-                {posts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="bg-[#14141A] rounded-3xl p-6 border border-white/5"
-                  >
-                    <h4 className="text-lg font-semibold">
-                      {post.foodName}
-                    </h4>
-                    <p className="text-sm text-neutral-400">
-                      {post.quantity}
-                    </p>
-                    <p className="text-xs text-neutral-500 mt-1">
-                      Posted {getTimeAgo(post.createdAt)}
-                    </p>
-
-                    <span
-                      className={`mt-3 inline-block text-xs px-3 py-1 rounded-full ${
-                        post.status === "available"
-                          ? "bg-yellow-500/20 text-yellow-400"
-                          : "bg-green-500/20 text-green-400"
-                      }`}
+                {posts
+                  .filter((p) => p.owner === orgName)
+                  .map((post) => (
+                    <div
+                      key={post.id}
+                      className="bg-[#14141A] rounded-3xl p-6 border border-white/5"
                     >
-                      {post.status}
-                    </span>
-                  </div>
-                ))}
+                      <h4 className="text-lg font-semibold">
+                        {post.foodName}
+                      </h4>
+                      <p className="text-sm text-neutral-400">
+                        {post.quantity}
+                      </p>
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Posted {getTimeAgo(post.createdAt)}
+                      </p>
+
+                      <span
+                        className={`mt-3 inline-block text-xs px-3 py-1 rounded-full ${
+                          post.status === "available"
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : "bg-green-500/20 text-green-400"
+                        }`}
+                      >
+                        {post.status}
+                      </span>
+                    </div>
+                  ))}
               </div>
             </div>
-
           </section>
         )}
       </div>
